@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  fastapi-ecommerce:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: fastapi-ecommerce-api
+    ports:
+      - "8802:8802"
+    env_file:
+      - ../.env
+    volumes:
+      - ../app:/app/app
+      - ../database:/app/database
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8802/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: fastapi-ecommerce-db
+    environment:
+      - POSTGRES_USER=ecommerce_user
+      - POSTGRES_PASSWORD=ecommerce_password
+      - POSTGRES_DB=ecommerce_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../database/schemas:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecommerce_user -d ecommerce_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: fastapi-ecommerce-pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@ecommerce.com
+      - PGADMIN_DEFAULT_PASSWORD=admin123
+    ports:
+      - "8080:80"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: ecommerce-network
