@@ -1,6 +1,6 @@
 This implementation plan details a structured approach to setting up **pytest** for your FastAPI e-commerce backend, focusing on the proposed testing areas and utilizing standard best practices like fixtures and dependency overriding for isolation.
 
-## 📝 Pytest Implementation Plan
+## Pytest Implementation Plan
 
 The plan is divided into three phases: setting up the core testing infrastructure, creating authentication fixtures, and defining the test execution roadmap.
 
