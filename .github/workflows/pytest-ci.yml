@@ -55,7 +55,7 @@ jobs:
           echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env
 
       - name: Build and run Docker container
-        run: docker-compose -f docker/docker-compose.yml up -d --build
+        run: docker compose -f docker/docker-compose.yml up -d --build
 
       - name: Wait for services to be ready
         run: sleep 20 # Give the container a moment to start up, especially with a database
@@ -65,4 +65,4 @@ jobs:
 
       - name: Stop containers
         if: always() # This step will run even if the tests fail
-        run: docker-compose -f docker/docker-compose.yml down
+        run: docker compose -f docker/docker-compose.yml down
