@@ -1,7 +1,8 @@
 -- ============================================================================
--- E-COMMERCE DATABASE SCHEMA
+-- E-COMMERCE DATABASE SCHEMA V2
 -- ============================================================================
 -- This script creates all necessary tables for a complete e-commerce system
+-- Using SERIAL for IDs (except user_id which uses UUID for Supabase Auth)
 -- Compatible with PostgreSQL/Supabase
 -- ============================================================================
 
@@ -9,281 +10,249 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================================================
--- 1. USERS TABLE
+-- DROP EXISTING TABLES (if you want to recreate from scratch)
 -- ============================================================================
--- Stores information about customers and administrators
-CREATE TABLE IF NOT EXISTS users (
-    user_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(20) DEFAULT 'customer' CHECK (role IN ('customer', 'admin')),
-    default_address_id UUID,
-    registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE,
-    phone VARCHAR(20),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- Uncomment the following lines if you want to drop existing tables
+-- DROP TABLE IF EXISTS order_items CASCADE;
+-- DROP TABLE IF EXISTS orders CASCADE;
+-- DROP TABLE IF EXISTS payments CASCADE;
+-- DROP TABLE IF EXISTS cart_items CASCADE;
+-- DROP TABLE IF EXISTS carts CASCADE;
+-- DROP TABLE IF EXISTS reviews CASCADE;
+-- DROP TABLE IF EXISTS coupons CASCADE;
+-- DROP TABLE IF EXISTS product_variants CASCADE;
+-- DROP TABLE IF EXISTS products CASCADE;
+-- DROP TABLE IF EXISTS categories CASCADE;
+-- DROP TABLE IF EXISTS addresses CASCADE;
+-- DROP TABLE IF EXISTS users CASCADE;
+
+-- ============================================================================
+-- 1. Categories Table
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS categories (
+    category_id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    description TEXT,
+    parent_id INTEGER REFERENCES categories(category_id), -- Self-referencing for hierarchy
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Index for faster email lookups
+CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON categories(parent_id);
+
+-- ============================================================================
+-- 2. Products Table
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS products (
+    product_id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    base_price DECIMAL(10, 2) NOT NULL,
+    vat_rate DECIMAL(4, 2) NOT NULL DEFAULT 0.23, -- Default 23% VAT
+    category_id INTEGER NOT NULL REFERENCES categories(category_id),
+    stock_level INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id);
+CREATE INDEX IF NOT EXISTS idx_products_is_active ON products(is_active);
+
+-- ============================================================================
+-- 3. Product Variants Table
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS product_variants (
+    variant_id SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(product_id) ON DELETE CASCADE,
+    variant_name VARCHAR(100) NOT NULL, -- e.g., 'Color'
+    variant_value VARCHAR(100) NOT NULL, -- e.g., 'Red'
+    stock_level INTEGER NOT NULL DEFAULT 0,
+    additional_price DECIMAL(10, 2) DEFAULT 0.00, -- Price adjustment
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (product_id, variant_name, variant_value)
+);
+
+CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON product_variants(product_id);
+
+-- ============================================================================
+-- 4. Users Table (for profiles, assuming integration with Supabase Auth UUID)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS users (
+    user_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    email VARCHAR(255) NOT NULL UNIQUE,
+    hashed_password TEXT NOT NULL,
+    role VARCHAR(50) NOT NULL DEFAULT 'customer', -- 'customer' or 'admin'
+    default_address_id INTEGER,
+    registration_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 
 -- ============================================================================
--- 2. ADDRESSES TABLE
+-- 5. Addresses Table
 -- ============================================================================
--- Stores shipping and billing addresses
 CREATE TABLE IF NOT EXISTS addresses (
-    address_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    address_id SERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     street VARCHAR(255) NOT NULL,
     city VARCHAR(100) NOT NULL,
-    postal_code VARCHAR(20) NOT NULL,
+    zip_code VARCHAR(20) NOT NULL,
     country VARCHAR(100) NOT NULL,
-    address_type VARCHAR(20) CHECK (address_type IN ('shipping', 'billing', 'both')),
-    is_default BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    address_type VARCHAR(50) NOT NULL, -- 'shipping' or 'billing'
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-
--- Add foreign key constraint to users table for default_address_id
-ALTER TABLE users 
-ADD CONSTRAINT fk_users_default_address 
-FOREIGN KEY (default_address_id) REFERENCES addresses(address_id) ON DELETE SET NULL;
 
 CREATE INDEX IF NOT EXISTS idx_addresses_user_id ON addresses(user_id);
 
--- ============================================================================
--- 3. CATEGORIES TABLE
--- ============================================================================
--- Hierarchical organization of products
-CREATE TABLE IF NOT EXISTS categories (
-    category_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
-    parent_id UUID REFERENCES categories(category_id) ON DELETE SET NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    display_order INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Update users table to reference addresses
+ALTER TABLE users
+DROP CONSTRAINT IF EXISTS fk_default_address;
 
-CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON categories(parent_id);
-CREATE INDEX IF NOT EXISTS idx_categories_name ON categories(name);
+ALTER TABLE users
+ADD CONSTRAINT fk_default_address
+FOREIGN KEY (default_address_id)
+REFERENCES addresses(address_id)
+DEFERRABLE INITIALLY DEFERRED;
 
 -- ============================================================================
--- 4. PRODUCTS TABLE
+-- 6. Carts Table
 -- ============================================================================
--- Stores details about the goods being sold
-CREATE TABLE IF NOT EXISTS products (
-    product_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    price DECIMAL(10, 2) NOT NULL CHECK (price >= 0),
-    vat DECIMAL(5, 2) DEFAULT 0.00 CHECK (vat >= 0 AND vat <= 100),
-    category_id UUID REFERENCES categories(category_id) ON DELETE SET NULL,
-    stock_quantity INTEGER DEFAULT 0 CHECK (stock_quantity >= 0),
-    sku VARCHAR(100) UNIQUE,
-    weight DECIMAL(10, 2),
-    dimensions VARCHAR(100),
-    image_url TEXT,
-    is_active BOOLEAN DEFAULT TRUE,
-    date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id);
-CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
-CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);
-CREATE INDEX IF NOT EXISTS idx_products_is_active ON products(is_active);
-
--- ============================================================================
--- 5. PRODUCT_VARIANTS TABLE
--- ============================================================================
--- Handling different attributes of the same product (e.g., size, color)
-CREATE TABLE IF NOT EXISTS product_variants (
-    variant_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    product_id UUID NOT NULL REFERENCES products(product_id) ON DELETE CASCADE,
-    variant_name VARCHAR(50) NOT NULL, -- e.g., 'color', 'size'
-    variant_value VARCHAR(50) NOT NULL, -- e.g., 'red', 'XL'
-    stock_quantity INTEGER DEFAULT 0 CHECK (stock_quantity >= 0),
-    additional_price DECIMAL(10, 2) DEFAULT 0.00,
-    sku VARCHAR(100) UNIQUE,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(product_id, variant_name, variant_value)
-);
-
-CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON product_variants(product_id);
-CREATE INDEX IF NOT EXISTS idx_product_variants_sku ON product_variants(sku);
-
--- ============================================================================
--- 6. CARTS TABLE
--- ============================================================================
--- Storing users' current shopping carts
 CREATE TABLE IF NOT EXISTS carts (
-    cart_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    cart_id SERIAL PRIMARY KEY,
     user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
-    session_id VARCHAR(255), -- For guest users
-    creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_carts_user_id ON carts(user_id);
-CREATE INDEX IF NOT EXISTS idx_carts_session_id ON carts(session_id);
 
 -- ============================================================================
--- 7. CART_ITEMS TABLE
+-- 7. Cart Items Table
 -- ============================================================================
--- Products contained within a shopping cart
 CREATE TABLE IF NOT EXISTS cart_items (
-    cart_item_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    cart_id UUID NOT NULL REFERENCES carts(cart_id) ON DELETE CASCADE,
-    product_id UUID NOT NULL REFERENCES products(product_id) ON DELETE CASCADE,
-    variant_id UUID REFERENCES product_variants(variant_id) ON DELETE SET NULL,
+    cart_item_id SERIAL PRIMARY KEY,
+    cart_id INTEGER NOT NULL REFERENCES carts(cart_id) ON DELETE CASCADE,
+    product_id INTEGER NOT NULL REFERENCES products(product_id),
+    variant_id INTEGER REFERENCES product_variants(variant_id), -- Optional
     quantity INTEGER NOT NULL CHECK (quantity > 0),
-    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(cart_id, product_id, variant_id)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (cart_id, product_id, variant_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_cart_items_cart_id ON cart_items(cart_id);
 CREATE INDEX IF NOT EXISTS idx_cart_items_product_id ON cart_items(product_id);
 
 -- ============================================================================
--- 8. ORDERS TABLE
+-- 8. Payments Table
 -- ============================================================================
--- Storing information about placed orders
+CREATE TABLE IF NOT EXISTS payments (
+    payment_id SERIAL PRIMARY KEY,
+    order_id INTEGER, -- FK added later
+    amount DECIMAL(10, 2) NOT NULL,
+    status VARCHAR(50) NOT NULL, -- 'paid', 'pending', 'failed'
+    payment_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    transaction_id VARCHAR(255) UNIQUE,
+    payment_method VARCHAR(100),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+CREATE INDEX IF NOT EXISTS idx_payments_transaction_id ON payments(transaction_id);
+
+-- ============================================================================
+-- 9. Orders Table
+-- ============================================================================
 CREATE TABLE IF NOT EXISTS orders (
-    order_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE RESTRICT,
-    order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status VARCHAR(50) DEFAULT 'new' CHECK (status IN ('new', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded')),
-    total_amount DECIMAL(10, 2) NOT NULL CHECK (total_amount >= 0),
-    shipping_address_id UUID REFERENCES addresses(address_id) ON DELETE RESTRICT,
-    billing_address_id UUID REFERENCES addresses(address_id) ON DELETE RESTRICT,
-    payment_method VARCHAR(50),
-    shipping_method VARCHAR(50),
-    tracking_number VARCHAR(100),
-    notes TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    order_id SERIAL PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    order_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(50) NOT NULL DEFAULT 'new',
+    total_amount DECIMAL(10, 2) NOT NULL,
+    payment_id INTEGER REFERENCES payments(payment_id),
+    shipping_address_id INTEGER NOT NULL REFERENCES addresses(address_id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_order_date ON orders(order_date);
 
+-- Update Payments table with FK to Orders
+ALTER TABLE payments
+DROP CONSTRAINT IF EXISTS fk_payment_order;
+
+ALTER TABLE payments
+ADD CONSTRAINT fk_payment_order
+FOREIGN KEY (order_id)
+REFERENCES orders(order_id)
+ON DELETE SET NULL;
+
 -- ============================================================================
--- 9. ORDER_ITEMS TABLE
+-- 10. Order Items Table
 -- ============================================================================
--- Details of the products included in each order
 CREATE TABLE IF NOT EXISTS order_items (
-    item_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    order_id UUID NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
-    product_id UUID NOT NULL REFERENCES products(product_id) ON DELETE RESTRICT,
-    variant_id UUID REFERENCES product_variants(variant_id) ON DELETE SET NULL,
-    quantity INTEGER NOT NULL CHECK (quantity > 0),
-    unit_price DECIMAL(10, 2) NOT NULL CHECK (unit_price >= 0),
-    vat_rate DECIMAL(5, 2) DEFAULT 0.00,
-    discount_amount DECIMAL(10, 2) DEFAULT 0.00,
-    total_price DECIMAL(10, 2) GENERATED ALWAYS AS (quantity * unit_price - discount_amount) STORED,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    order_item_id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
+    product_id INTEGER NOT NULL REFERENCES products(product_id),
+    variant_id INTEGER REFERENCES product_variants(variant_id), -- Optional
+    quantity INTEGER NOT NULL,
+    unit_price DECIMAL(10, 2) NOT NULL, -- Price at the time of purchase
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (order_id, product_id, variant_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON order_items(product_id);
 
 -- ============================================================================
--- 10. PAYMENTS TABLE
+-- 11. Reviews Table
 -- ============================================================================
--- Recording payment transactions
-CREATE TABLE IF NOT EXISTS payments (
-    payment_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    order_id UUID NOT NULL REFERENCES orders(order_id) ON DELETE RESTRICT,
-    amount DECIMAL(10, 2) NOT NULL CHECK (amount >= 0),
-    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'failed', 'refunded', 'cancelled')),
-    payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    payment_method VARCHAR(50) NOT NULL,
-    transaction_identifier VARCHAR(255),
-    gateway_response TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);
-CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
-CREATE INDEX IF NOT EXISTS idx_payments_transaction_id ON payments(transaction_identifier);
-
--- ============================================================================
--- 11. RATINGS_AND_REVIEWS TABLE
--- ============================================================================
--- Customer feedback on products
-CREATE TABLE IF NOT EXISTS ratings_and_reviews (
-    review_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    product_id UUID NOT NULL REFERENCES products(product_id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS reviews (
+    review_id SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(product_id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
-    title VARCHAR(255),
+    rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
     content TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     is_approved BOOLEAN DEFAULT FALSE,
-    is_verified_purchase BOOLEAN DEFAULT FALSE,
-    helpful_count INTEGER DEFAULT 0,
-    date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(product_id, user_id)
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (product_id, user_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_reviews_product_id ON ratings_and_reviews(product_id);
-CREATE INDEX IF NOT EXISTS idx_reviews_user_id ON ratings_and_reviews(user_id);
-CREATE INDEX IF NOT EXISTS idx_reviews_rating ON ratings_and_reviews(rating);
-CREATE INDEX IF NOT EXISTS idx_reviews_is_approved ON ratings_and_reviews(is_approved);
+CREATE INDEX IF NOT EXISTS idx_reviews_product_id ON reviews(product_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_user_id ON reviews(user_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_is_approved ON reviews(is_approved);
 
 -- ============================================================================
--- 12. DISCOUNT_COUPONS TABLE
+-- 12. Coupons Table
 -- ============================================================================
--- Managing promotional codes
-CREATE TABLE IF NOT EXISTS discount_coupons (
-    coupon_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    code VARCHAR(50) UNIQUE NOT NULL,
-    description TEXT,
-    discount_type VARCHAR(20) CHECK (discount_type IN ('percentage', 'fixed')),
-    discount_value DECIMAL(10, 2) NOT NULL CHECK (discount_value >= 0),
-    valid_from_date TIMESTAMP NOT NULL,
-    valid_to_date TIMESTAMP NOT NULL,
-    minimum_order_amount DECIMAL(10, 2) DEFAULT 0.00,
-    maximum_usage INTEGER,
-    current_usage INTEGER DEFAULT 0,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CHECK (valid_to_date > valid_from_date)
+CREATE TABLE IF NOT EXISTS coupons (
+    coupon_id SERIAL PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    discount_type VARCHAR(50) NOT NULL, -- 'percentage' or 'fixed'
+    discount_value DECIMAL(10, 2) NOT NULL,
+    valid_from TIMESTAMP WITH TIME ZONE NOT NULL,
+    valid_until TIMESTAMP WITH TIME ZONE NOT NULL,
+    min_order_amount DECIMAL(10, 2) DEFAULT 0.00,
+    max_usage INTEGER DEFAULT NULL,
+    times_used INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_coupons_code ON discount_coupons(code);
-CREATE INDEX IF NOT EXISTS idx_coupons_is_active ON discount_coupons(is_active);
-
--- ============================================================================
--- 13. COUPON_USAGE TABLE (Additional tracking)
--- ============================================================================
--- Track which users have used which coupons
-CREATE TABLE IF NOT EXISTS coupon_usage (
-    usage_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    coupon_id UUID NOT NULL REFERENCES discount_coupons(coupon_id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    order_id UUID REFERENCES orders(order_id) ON DELETE SET NULL,
-    used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(coupon_id, user_id, order_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon_id ON coupon_usage(coupon_id);
-CREATE INDEX IF NOT EXISTS idx_coupon_usage_user_id ON coupon_usage(user_id);
+CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons(code);
+CREATE INDEX IF NOT EXISTS idx_coupons_valid_dates ON coupons(valid_from, valid_until);
 
 -- ============================================================================
 -- TRIGGERS FOR UPDATED_AT TIMESTAMPS
@@ -299,44 +268,55 @@ END;
 $$ language 'plpgsql';
 
 -- Apply trigger to all relevant tables
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_addresses_updated_at BEFORE UPDATE ON addresses
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
+DROP TRIGGER IF EXISTS update_categories_updated_at ON categories;
 CREATE TRIGGER update_categories_updated_at BEFORE UPDATE ON categories
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_products_updated_at ON products;
 CREATE TRIGGER update_products_updated_at BEFORE UPDATE ON products
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_product_variants_updated_at ON product_variants;
 CREATE TRIGGER update_product_variants_updated_at BEFORE UPDATE ON product_variants
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_addresses_updated_at ON addresses;
+CREATE TRIGGER update_addresses_updated_at BEFORE UPDATE ON addresses
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_carts_updated_at ON carts;
 CREATE TRIGGER update_carts_updated_at BEFORE UPDATE ON carts
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_cart_items_updated_at ON cart_items;
 CREATE TRIGGER update_cart_items_updated_at BEFORE UPDATE ON cart_items
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
+DROP TRIGGER IF EXISTS update_payments_updated_at ON payments;
 CREATE TRIGGER update_payments_updated_at BEFORE UPDATE ON payments
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_reviews_updated_at BEFORE UPDATE ON ratings_and_reviews
+DROP TRIGGER IF EXISTS update_orders_updated_at ON orders;
+CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_coupons_updated_at BEFORE UPDATE ON discount_coupons
+DROP TRIGGER IF EXISTS update_reviews_updated_at ON reviews;
+CREATE TRIGGER update_reviews_updated_at BEFORE UPDATE ON reviews
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_coupons_updated_at ON coupons;
+CREATE TRIGGER update_coupons_updated_at BEFORE UPDATE ON coupons
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================================================
 -- VIEWS FOR COMMON QUERIES
 -- ============================================================================
 
--- View for product details with category
+-- View for products with category information
 CREATE OR REPLACE VIEW v_products_with_category AS
 SELECT 
     p.*,
@@ -355,22 +335,14 @@ SELECT
     o.order_date,
     o.status,
     o.total_amount,
-    COUNT(oi.item_id) as item_count,
+    COUNT(oi.order_item_id) as item_count,
     p.status as payment_status
 FROM orders o
 JOIN users u ON o.user_id = u.user_id
 LEFT JOIN order_items oi ON o.order_id = oi.order_id
-LEFT JOIN payments p ON o.order_id = p.order_id
+LEFT JOIN payments p ON o.payment_id = p.payment_id
 GROUP BY o.order_id, o.user_id, u.email, u.first_name, u.last_name, 
          o.order_date, o.status, o.total_amount, p.status;
-
--- ============================================================================
--- SAMPLE DATA (Optional - Comment out if not needed)
--- ============================================================================
-
--- Insert sample admin user
--- INSERT INTO users (first_name, last_name, email, password_hash, role)
--- VALUES ('Admin', 'User', 'admin@example.com', 'hashed_password_here', 'admin');
 
 -- ============================================================================
 -- END OF SCHEMA
