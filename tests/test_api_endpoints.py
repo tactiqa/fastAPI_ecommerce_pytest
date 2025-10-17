@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import pytest
 import requests
@@ -20,7 +20,7 @@ def base_url() -> str:
     return API_BASE_URL
 
 
-def _get(path: str, *, base_url: str, params: Dict[str, int] | None = None) -> Response:
+def _get(path: str, *, base_url: str, params: Optional[Dict[str, int]] = None) -> Response:
     return requests.get(f"{base_url}{path}", params=params, timeout=10)
 
 
