@@ -1,8 +1,8 @@
 # FastAPI E-Commerce Backend
 
-A complete e-commerce backend system built with FastAPI and PostgreSQL (via Supabase), featuring a comprehensive database schema and realistic seeded data.
+A complete e-commerce backend system built with FastAPI and PostgreSQL (via Supabase), featuring a database schema and seeded data.
 
-## 🎯 Features
+## Features
 
 - **Complete Database Schema** - 12 e-commerce tables + legacy todos
 - **Realistic Data** - 1,069 rows of seeded data for testing
@@ -13,7 +13,7 @@ A complete e-commerce backend system built with FastAPI and PostgreSQL (via Supa
 - **Reviews & Ratings** - Product feedback system
 - **Promotions** - Discount coupons and codes
 
-## 📊 Database Stats
+## Database Stats
 
 - **51 Users** (1 admin: admin@ecommerce.com / admin123)
 - **101 Products** across 48 categories
@@ -22,7 +22,7 @@ A complete e-commerce backend system built with FastAPI and PostgreSQL (via Supa
 - **8 Active Coupons** (WELCOME10, SAVE20, etc.)
 - **1,069 Total Records** (excluding legacy todos)
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 fastapi-ecommerce/
@@ -55,7 +55,7 @@ fastapi-ecommerce/
 └── README.md                     # This file
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Environment Setup
 ```bash
@@ -92,7 +92,7 @@ python database/scripts/migrate_to_serial.py --confirm
 python database/scripts/seed_database.py
 ```
 
-## 🔑 Admin Access
+## Admin Access
 
 **Admin Account:**
 ```
@@ -104,7 +104,7 @@ Password: admin123
 - All customers use password: `password123`
 - Sample emails: samuelhoffman@example.com, santiagostephanie@example.org
 
-## 🛠️ Development
+## Development
 
 ### Database Scripts
 - **check_db_direct.py** - Verify connection and view data
@@ -118,32 +118,20 @@ Password: admin123
 4. Add Docker configuration
 5. Implement business logic
 
-## 📚 Documentation
+## Documentation
 
 - **Database Schema** - Complete table definitions in `database/docs/`
 - **Seeding Details** - Comprehensive data information
 - **Setup Guide** - Step-by-step instructions
 - **Quick Reference** - Essential commands and queries
 
-## 🐳 Docker Support
+## Docker Support
 
 Docker configuration coming soon in the `docker/` directory.
 
-## 📝 Notes
+## Notes
 
 - Database uses SERIAL IDs for simplicity (except user_id as UUID for Supabase Auth)
 - All passwords are hashed with bcrypt
-- Database is pre-seeded with realistic test data
+- Database is pre-seeded with realistic (but fake) test data
 - Ready for FastAPI development
-
-## 🔗 Links
-
-- [Supabase Dashboard](https://supabase.com/dashboard)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [GitHub Repository](https://github.com/tactiqa/API_testing_fastAPI_ecommerce)
-
----
-
-**Status:** ✅ Ready for FastAPI development  
-**Last Updated:** October 16, 2025  
-**Next Milestone:** Create FastAPI application structure
