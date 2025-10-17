@@ -25,7 +25,37 @@ def hash_password(password):
     hashed = bcrypt.hashpw(password_bytes, salt)
     return hashed.decode('utf-8')
 
-def seed_database():
+def clear_existing_data(cursor):
+    """Clear all existing data from tables in correct order"""
+    print("🗑️  Clearing existing data...")
+    
+    tables_to_clear = [
+        'ratings_and_reviews',
+        'order_items',
+        'payments',
+        'orders',
+        'cart_items',
+        'carts',
+        'product_variants',
+        'products',
+        'addresses',
+        'users',
+        'categories',
+        'coupons',
+        'discount_coupons'
+    ]
+    
+    for table in tables_to_clear:
+        try:
+            cursor.execute(f"TRUNCATE TABLE {table} CASCADE")
+            print(f"   ✓ Cleared {table}")
+        except Exception as e:
+            # Silently skip tables that don't exist
+            pass
+    
+    print("✅ Data cleared successfully!\n")
+
+def seed_database(clear_data=False):
     """Seed all tables with fake data"""
     
     load_dotenv()
@@ -46,6 +76,11 @@ def seed_database():
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
         print("✅ Connected successfully!\n")
+        
+        # Clear existing data if requested
+        if clear_data:
+            clear_existing_data(cursor)
+            conn.commit()
         
         # ====================================================================
         # 1. SEED CATEGORIES
@@ -465,7 +500,17 @@ if __name__ == "__main__":
     print("E-COMMERCE DATABASE SEEDING")
     print("=" * 70)
     
-    success = seed_database()
+    # Check for --clear flag
+    clear_data = '--clear' in sys.argv or '--reset' in sys.argv
+    
+    if clear_data:
+        print("\n⚠️  WARNING: This will delete all existing data!")
+        response = input("Are you sure you want to continue? (yes/no): ")
+        if response.lower() not in ['yes', 'y']:
+            print("❌ Seeding cancelled.")
+            sys.exit(0)
+    
+    success = seed_database(clear_data=clear_data)
     
     if success:
         print("\n📝 Next steps:")
