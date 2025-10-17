@@ -48,8 +48,8 @@ class Product(BaseModel):
     product_id: int
     name: str
     description: Optional[str] = None
-    price: float
-    stock_quantity: int
+    base_price: float
+    stock_level: int
     category_name: str
 
 class Order(BaseModel):
@@ -89,10 +89,10 @@ async def health():
 @app.get("/products", response_model=List[Product])
 async def get_products(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     query = text("""
-        SELECT p.product_id, p.name, p.description, p.price, p.stock_quantity, c.name as category_name
+        SELECT p.product_id, p.name, p.description, p.base_price, p.stock_level, c.name as category_name
         FROM products p
-        JOIN categories c ON p.category_id = c.category_id
-        ORDER BY p.product_id
+        LEFT JOIN categories c ON p.category_id = c.category_id
+        ORDER BY p.created_at DESC
         LIMIT :limit OFFSET :skip
     """)
     result = db.execute(query, {"skip": skip, "limit": limit})
@@ -103,9 +103,9 @@ async def get_products(skip: int = 0, limit: int = 100, db: Session = Depends(ge
             product_id=p.product_id,
             name=p.name,
             description=p.description,
-            price=float(p.price),
-            stock_quantity=p.stock_quantity,
-            category_name=p.category_name
+            base_price=float(p.base_price),
+            stock_level=p.stock_level,
+            category_name=p.category_name or "Uncategorized"
         )
         for p in products
     ]
@@ -113,9 +113,9 @@ async def get_products(skip: int = 0, limit: int = 100, db: Session = Depends(ge
 @app.get("/products/{product_id}", response_model=Product)
 async def get_product(product_id: int, db: Session = Depends(get_db)):
     query = text("""
-        SELECT p.product_id, p.name, p.description, p.price, p.stock_quantity, c.name as category_name
+        SELECT p.product_id, p.name, p.description, p.base_price, p.stock_level, c.name as category_name
         FROM products p
-        JOIN categories c ON p.category_id = c.category_id
+        LEFT JOIN categories c ON p.category_id = c.category_id
         WHERE p.product_id = :product_id
     """)
     result = db.execute(query, {"product_id": product_id})
@@ -128,16 +128,16 @@ async def get_product(product_id: int, db: Session = Depends(get_db)):
         product_id=product.product_id,
         name=product.name,
         description=product.description,
-        price=float(product.price),
-        stock_quantity=product.stock_quantity,
-        category_name=product.category_name
+        base_price=float(product.base_price),
+        stock_level=product.stock_level,
+        category_name=product.category_name or "Uncategorized"
     )
 
 # Orders endpoints
 @app.get("/orders", response_model=List[Order])
 async def get_orders(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     query = text("""
-        SELECT o.order_id, u.email as customer_email, o.total_amount, o.order_status, o.created_at
+        SELECT o.order_id, u.email as customer_email, o.total_amount, o.status as order_status, o.created_at::text as created_at
         FROM orders o
         JOIN users u ON o.user_id = u.user_id
         ORDER BY o.created_at DESC
@@ -160,7 +160,7 @@ async def get_orders(skip: int = 0, limit: int = 100, db: Session = Depends(get_
 @app.get("/orders/{order_id}", response_model=Order)
 async def get_order(order_id: int, db: Session = Depends(get_db)):
     query = text("""
-        SELECT o.order_id, u.email as customer_email, o.total_amount, o.order_status, o.created_at
+        SELECT o.order_id, u.email as customer_email, o.total_amount, o.status as order_status, o.created_at::text as created_at
         FROM orders o
         JOIN users u ON o.user_id = u.user_id
         WHERE o.order_id = :order_id
@@ -186,7 +186,7 @@ async def get_database_stats(db: Session = Depends(get_db)):
     
     tables = [
         "users", "categories", "products", "orders", 
-        "order_items", "reviews", "coupons", "shopping_cart"
+        "order_items", "ratings_and_reviews", "discount_coupons", "carts"
     ]
     
     for table in tables:
