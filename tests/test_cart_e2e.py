@@ -42,8 +42,8 @@ def product_with_variant():
         row = connection.execute(query).fetchone()
         assert row is not None, "No product variants available for cart tests"
         return {
-            "product_id": row[0],
-            "variant_id": row[1],
+            "product_id": str(row[0]),
+            "variant_id": str(row[1]),
             "base_price": float(row[2]),
         }
 

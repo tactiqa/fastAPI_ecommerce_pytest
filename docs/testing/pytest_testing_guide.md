@@ -80,7 +80,7 @@ Testing the logic for applying discounts.
     *   Test applying an expired or non-existent coupon.
     *   Test applying a coupon that has already been used (if it's a single-use code).
 
-## 🛠️ Recommended Pytest Implementation Approach
+## Recommended Pytest Implementation Approach
 
 The most important part of the setup is ensuring test isolation using:
 

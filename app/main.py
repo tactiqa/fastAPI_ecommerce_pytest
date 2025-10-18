@@ -4,6 +4,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from pydantic import BaseModel, Field
 from typing import List, Optional
+from decimal import Decimal
 import os
 from dotenv import load_dotenv
 
@@ -45,7 +46,7 @@ class HealthCheck(BaseModel):
     timestamp: str
 
 class Product(BaseModel):
-    product_id: int
+    product_id: str
     name: str
     description: Optional[str] = None
     base_price: float
@@ -57,7 +58,7 @@ class ProductCreate(BaseModel):
     description: Optional[str] = None
     base_price: float
     vat_rate: Optional[float] = 0.23
-    category_id: int
+    category_id: str
     stock_level: int
     is_active: Optional[bool] = True
 
@@ -65,29 +66,43 @@ class ProductUpdate(ProductCreate):
     pass
 
 class Order(BaseModel):
-    order_id: int
+    order_id: str
     customer_email: str
     total_amount: float
     order_status: str
     created_at: str
 
+class OrderItemDetail(BaseModel):
+    order_item_id: str
+    product_id: str
+    variant_id: Optional[str] = None
+    quantity: int
+    unit_price: float
+
+class OrderCreateRequest(BaseModel):
+    user_id: str
+    shipping_address_id: str
+
+class OrderDetailResponse(Order):
+    items: List[OrderItemDetail]
+
 class CartItemCreate(BaseModel):
     user_id: str
-    product_id: int
+    product_id: str
     quantity: int = Field(gt=0)
-    variant_id: Optional[int] = None
+    variant_id: Optional[str] = None
 
 class CartItemResponse(BaseModel):
-    cart_item_id: int
-    cart_id: int
-    product_id: int
+    cart_item_id: str
+    cart_id: str
+    product_id: str
     quantity: int
-    variant_id: Optional[int] = None
+    variant_id: Optional[str] = None
     product_name: str
     base_price: float
 
 class CartResponse(BaseModel):
-    cart_id: int
+    cart_id: str
     user_id: str
     items: List[CartItemResponse]
     total_quantity: int
@@ -133,7 +148,7 @@ async def get_products(skip: int = 0, limit: int = 100, db: Session = Depends(ge
     
     return [
         Product(
-            product_id=p.product_id,
+            product_id=str(p.product_id),
             name=p.name,
             description=p.description,
             base_price=float(p.base_price),
@@ -144,7 +159,7 @@ async def get_products(skip: int = 0, limit: int = 100, db: Session = Depends(ge
     ]
 
 @app.get("/products/{product_id}", response_model=Product)
-async def get_product(product_id: int, db: Session = Depends(get_db)):
+async def get_product(product_id: str, db: Session = Depends(get_db)):
     query = text("""
         SELECT p.product_id, p.name, p.description, p.base_price, p.stock_level, c.name as category_name
         FROM products p
@@ -158,7 +173,7 @@ async def get_product(product_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Product not found")
     
     return Product(
-        product_id=product.product_id,
+        product_id=str(product.product_id),
         name=product.name,
         description=product.description,
         base_price=float(product.base_price),
@@ -189,7 +204,7 @@ async def create_product(product: ProductCreate, db: Session = Depends(get_db)):
     return await get_product(new_product_id, db)
 
 @app.put("/products/{product_id}", response_model=Product)
-async def update_product(product_id: int, product: ProductUpdate, db: Session = Depends(get_db)):
+async def update_product(product_id: str, product: ProductUpdate, db: Session = Depends(get_db)):
     update_query = text("""
         UPDATE products
         SET name = :name,
@@ -222,7 +237,7 @@ async def update_product(product_id: int, product: ProductUpdate, db: Session = 
     return await get_product(product_id, db)
 
 @app.delete("/products/{product_id}", status_code=204)
-async def delete_product(product_id: int, db: Session = Depends(get_db)):
+async def delete_product(product_id: str, db: Session = Depends(get_db)):
     delete_query = text("""
         DELETE FROM products
         WHERE product_id = :product_id
@@ -254,7 +269,7 @@ async def get_orders(skip: int = 0, limit: int = 100, db: Session = Depends(get_
     
     return [
         Order(
-            order_id=o.order_id,
+            order_id=str(o.order_id),
             customer_email=o.customer_email,
             total_amount=float(o.total_amount),
             order_status=o.order_status,
@@ -264,7 +279,7 @@ async def get_orders(skip: int = 0, limit: int = 100, db: Session = Depends(get_
     ]
 
 @app.get("/orders/{order_id}", response_model=Order)
-async def get_order(order_id: int, db: Session = Depends(get_db)):
+async def get_order(order_id: str, db: Session = Depends(get_db)):
     query = text("""
         SELECT o.order_id, u.email as customer_email, o.total_amount, o.status as order_status, o.created_at::text as created_at
         FROM orders o
@@ -278,11 +293,158 @@ async def get_order(order_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Order not found")
     
     return Order(
-        order_id=order.order_id,
+        order_id=str(order.order_id),
         customer_email=order.customer_email,
         total_amount=float(order.total_amount),
         order_status=order.order_status,
         created_at=str(order.created_at)
+    )
+
+@app.post("/orders", response_model=OrderDetailResponse, status_code=201)
+async def create_order(order_request: OrderCreateRequest, db: Session = Depends(get_db)):
+    cart_row = db.execute(
+        text(
+            """
+            SELECT cart_id
+            FROM carts
+            WHERE user_id = :user_id
+            """
+        ),
+        {"user_id": order_request.user_id}
+    ).fetchone()
+
+    if not cart_row:
+        raise HTTPException(status_code=400, detail="Cart not found for user")
+
+    address_row = db.execute(
+        text(
+            """
+            SELECT address_id
+            FROM addresses
+            WHERE address_id = :address_id AND user_id = :user_id
+            """
+        ),
+        {"address_id": order_request.shipping_address_id, "user_id": order_request.user_id}
+    ).fetchone()
+
+    if not address_row:
+        raise HTTPException(status_code=400, detail="Shipping address not found for user")
+
+    items = db.execute(
+        text(
+            """
+            SELECT ci.cart_item_id, ci.product_id, ci.variant_id, ci.quantity,
+                   p.base_price, COALESCE(pv.additional_price, 0) AS additional_price
+            FROM cart_items ci
+            JOIN products p ON ci.product_id = p.product_id
+            LEFT JOIN product_variants pv ON ci.variant_id = pv.variant_id
+            WHERE ci.cart_id = :cart_id
+            ORDER BY ci.cart_item_id
+            """
+        ),
+        {"cart_id": cart_row.cart_id}
+    ).fetchall()
+
+    if not items:
+        raise HTTPException(status_code=400, detail="Cart is empty")
+
+    total_amount = Decimal("0")
+    data_for_items = []
+
+    for item in items:
+        base_price = Decimal(item.base_price)
+        additional_price = Decimal(item.additional_price)
+        unit_price = base_price + additional_price
+        line_total = unit_price * item.quantity
+        total_amount += line_total
+        data_for_items.append(
+            {
+                "product_id": item.product_id,
+                "variant_id": item.variant_id,
+                "quantity": item.quantity,
+                "unit_price": unit_price,
+            }
+        )
+
+    try:
+        order_result = db.execute(
+            text(
+                """
+                INSERT INTO orders (user_id, total_amount, shipping_address_id)
+                VALUES (:user_id, :total_amount, :shipping_address_id)
+                RETURNING order_id
+                """
+            ),
+            {
+                "user_id": order_request.user_id,
+                "total_amount": float(total_amount),
+                "shipping_address_id": order_request.shipping_address_id,
+            }
+        )
+        order_id = order_result.scalar()
+
+        for item_data in data_for_items:
+            db.execute(
+                text(
+                    """
+                    INSERT INTO order_items (order_id, product_id, variant_id, quantity, unit_price)
+                    VALUES (:order_id, :product_id, :variant_id, :quantity, :unit_price)
+                    """
+                ),
+                {
+                    "order_id": order_id,
+                    "product_id": item_data["product_id"],
+                    "variant_id": item_data["variant_id"],
+                    "quantity": item_data["quantity"],
+                    "unit_price": float(item_data["unit_price"]),
+                }
+            )
+
+        db.execute(
+            text(
+                """
+                DELETE FROM cart_items
+                WHERE cart_id = :cart_id
+                """
+            ),
+            {"cart_id": cart_row.cart_id}
+        )
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    order_summary = await get_order(order_id, db)
+
+    order_items = db.execute(
+        text(
+            """
+            SELECT order_item_id, product_id, variant_id, quantity, unit_price
+            FROM order_items
+            WHERE order_id = :order_id
+            ORDER BY order_item_id
+            """
+        ),
+        {"order_id": order_id}
+    ).fetchall()
+
+    return OrderDetailResponse(
+        order_id=order_summary.order_id,
+        customer_email=order_summary.customer_email,
+        total_amount=order_summary.total_amount,
+        order_status=order_summary.order_status,
+        created_at=order_summary.created_at,
+        items=[
+            OrderItemDetail(
+                order_item_id=str(item.order_item_id),
+                product_id=str(item.product_id),
+                variant_id=str(item.variant_id) if item.variant_id else None,
+                quantity=item.quantity,
+                unit_price=float(item.unit_price),
+            )
+            for item in order_items
+        ],
     )
 
 @app.get("/cart/{user_id}", response_model=CartResponse)
@@ -324,11 +486,11 @@ async def get_cart(user_id: str, db: Session = Depends(get_db)):
 
     response_items = [
         CartItemResponse(
-            cart_item_id=item.cart_item_id,
-            cart_id=item.cart_id,
-            product_id=item.product_id,
+            cart_item_id=str(item.cart_item_id),
+            cart_id=str(item.cart_id),
+            product_id=str(item.product_id),
             quantity=item.quantity,
-            variant_id=item.variant_id,
+            variant_id=str(item.variant_id) if item.variant_id else None,
             product_name=item.product_name,
             base_price=float(item.base_price)
         )
@@ -338,7 +500,7 @@ async def get_cart(user_id: str, db: Session = Depends(get_db)):
     total_quantity = sum(item.quantity for item in items)
 
     return CartResponse(
-        cart_id=cart_id,
+        cart_id=str(cart_id),
         user_id=user_id,
         items=response_items,
         total_quantity=total_quantity
@@ -448,17 +610,17 @@ async def add_cart_item(payload: CartItemCreate, db: Session = Depends(get_db)):
     ).fetchone()
 
     return CartItemResponse(
-        cart_item_id=item.cart_item_id,
-        cart_id=item.cart_id,
-        product_id=item.product_id,
+        cart_item_id=str(item.cart_item_id),
+        cart_id=str(item.cart_id),
+        product_id=str(item.product_id),
         quantity=item.quantity,
-        variant_id=item.variant_id,
+        variant_id=str(item.variant_id) if item.variant_id else None,
         product_name=item.product_name,
         base_price=float(item.base_price)
     )
 
 @app.delete("/cart/items/{cart_item_id}", status_code=204)
-async def delete_cart_item(cart_item_id: int, db: Session = Depends(get_db)):
+async def delete_cart_item(cart_item_id: str, db: Session = Depends(get_db)):
     result = db.execute(
         text("""
             DELETE FROM cart_items
