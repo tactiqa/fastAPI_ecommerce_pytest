@@ -30,7 +30,7 @@ def product_with_variant():
     """Return a product ID with an associated variant ID."""
     query = text(
         """
-        SELECT pv.product_id, pv.variant_id
+        SELECT pv.product_id, pv.variant_id, p.base_price
         FROM product_variants pv
         JOIN products p ON p.product_id = pv.product_id
         WHERE p.is_active = TRUE
@@ -41,7 +41,11 @@ def product_with_variant():
     with engine.connect() as connection:
         row = connection.execute(query).fetchone()
         assert row is not None, "No product variants available for cart tests"
-        return {"product_id": row[0], "variant_id": row[1]}
+        return {
+            "product_id": row[0],
+            "variant_id": row[1],
+            "base_price": float(row[2]),
+        }
 
 
 def test_cart_add_item_with_variant_e2e(customer_user_id, product_with_variant):
@@ -173,3 +177,52 @@ def test_cart_remove_item_e2e(customer_user_id, product_with_variant):
 
     for item in items:
         assert item["cart_item_id"] != created_item["cart_item_id"], "Deleted item still present in cart"
+
+
+def test_cart_retrieve_state_and_subtotal_e2e(customer_user_id, product_with_variant):
+    """GET /cart/{user_id} returns expected totals including subtotal calculation."""
+    product_id = product_with_variant["product_id"]
+    variant_id = product_with_variant["variant_id"]
+    base_price = product_with_variant["base_price"]
+
+    cart_before = requests.get(f"{BASE_URL}/cart/{customer_user_id}")
+    assert cart_before.status_code == 200
+
+    for item in cart_before.json()["items"]:
+        cleanup = requests.delete(f"{BASE_URL}/cart/items/{item['cart_item_id']}")
+        assert cleanup.status_code == 204
+
+    quantity = 3
+    payload = {
+        "user_id": customer_user_id,
+        "product_id": product_id,
+        "variant_id": variant_id,
+        "quantity": quantity,
+    }
+
+    create_response = requests.post(f"{BASE_URL}/cart/items", json=payload)
+    assert create_response.status_code == 201, create_response.text
+    created_item = create_response.json()
+
+    cart_response = requests.get(f"{BASE_URL}/cart/{customer_user_id}")
+    assert cart_response.status_code == 200
+    cart_data = cart_response.json()
+
+    assert cart_data["total_quantity"] == quantity
+    assert cart_data["user_id"] == customer_user_id
+
+    assert len(cart_data["items"]) == 1
+    cart_item = cart_data["items"][0]
+    assert cart_item["cart_item_id"] == created_item["cart_item_id"]
+    assert cart_item["quantity"] == quantity
+
+    expected_subtotal = base_price * quantity
+    actual_subtotal = cart_item["quantity"] * cart_item["base_price"]
+    print(
+        f"Cart subtotal calculation: quantity={cart_item['quantity']} base_price={cart_item['base_price']} "
+        f"=> expected={expected_subtotal} actual={actual_subtotal}"
+    )
+    assert actual_subtotal == pytest.approx(expected_subtotal, rel=1e-6)
+
+    cleanup_response = requests.delete(f"{BASE_URL}/cart/items/{created_item['cart_item_id']}")
+    assert cleanup_response.status_code == 204
