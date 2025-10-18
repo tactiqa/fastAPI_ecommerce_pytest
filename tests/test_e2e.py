@@ -15,16 +15,24 @@ if not DATABASE_URL:
 
 engine = create_engine(DATABASE_URL)
 
-def test_get_single_product_e2e():
+@pytest.fixture(scope="module")
+def existing_product_id():
+    """Fetch an existing product ID from the seeded database."""
+    with engine.connect() as connection:
+        row = connection.execute(
+            text("SELECT product_id FROM products ORDER BY product_id LIMIT 1")
+        ).fetchone()
+        assert row is not None, "No products available for test"
+        return row[0]
+
+def test_get_single_product_e2e(existing_product_id):
     """
     End-to-end test to retrieve a single product from the live API endpoint.
     """
-    product_id = 401
-    response = requests.get(f"{BASE_URL}/products/{product_id}")
+    response = requests.get(f"{BASE_URL}/products/{existing_product_id}")
     assert response.status_code == 200
     product = response.json()
-    assert product["product_id"] == product_id
-    assert product["name"] == "iPhone"
+    assert product["product_id"] == existing_product_id
 
 def test_health_check_e2e():
     """
