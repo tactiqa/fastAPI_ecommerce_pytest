@@ -23,7 +23,7 @@ def existing_product_id():
             text("SELECT product_id FROM products ORDER BY product_id LIMIT 1")
         ).fetchone()
         assert row is not None, "No products available for test"
-        return row[0]
+        return str(row[0])
 
 def test_get_single_product_e2e(existing_product_id):
     """
@@ -49,7 +49,7 @@ def category_id():
         result = connection.execute(text("SELECT category_id FROM categories ORDER BY category_id LIMIT 1"))
         row = result.fetchone()
         assert row is not None, "No categories available for product tests"
-        return row[0]
+        return str(row[0])
 
 
 @pytest.fixture(scope="module")
