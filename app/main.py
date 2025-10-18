@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
@@ -51,6 +51,18 @@ class Product(BaseModel):
     base_price: float
     stock_level: int
     category_name: str
+
+class ProductCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    base_price: float
+    vat_rate: Optional[float] = 0.23
+    category_id: int
+    stock_level: int
+    is_active: Optional[bool] = True
+
+class ProductUpdate(ProductCreate):
+    pass
 
 class Order(BaseModel):
     order_id: int
@@ -132,6 +144,79 @@ async def get_product(product_id: int, db: Session = Depends(get_db)):
         stock_level=product.stock_level,
         category_name=product.category_name or "Uncategorized"
     )
+
+@app.post("/products", response_model=Product, status_code=201)
+async def create_product(product: ProductCreate, db: Session = Depends(get_db)):
+    insert_query = text("""
+        INSERT INTO products (name, description, base_price, vat_rate, category_id, stock_level, is_active)
+        VALUES (:name, :description, :base_price, :vat_rate, :category_id, :stock_level, :is_active)
+        RETURNING product_id
+    """)
+
+    result = db.execute(insert_query, {
+        "name": product.name,
+        "description": product.description,
+        "base_price": product.base_price,
+        "vat_rate": product.vat_rate,
+        "category_id": product.category_id,
+        "stock_level": product.stock_level,
+        "is_active": product.is_active,
+    })
+    new_product_id = result.scalar()
+    db.commit()
+
+    return await get_product(new_product_id, db)
+
+@app.put("/products/{product_id}", response_model=Product)
+async def update_product(product_id: int, product: ProductUpdate, db: Session = Depends(get_db)):
+    update_query = text("""
+        UPDATE products
+        SET name = :name,
+            description = :description,
+            base_price = :base_price,
+            vat_rate = :vat_rate,
+            category_id = :category_id,
+            stock_level = :stock_level,
+            is_active = :is_active,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE product_id = :product_id
+    """)
+
+    result = db.execute(update_query, {
+        "name": product.name,
+        "description": product.description,
+        "base_price": product.base_price,
+        "vat_rate": product.vat_rate,
+        "category_id": product.category_id,
+        "stock_level": product.stock_level,
+        "is_active": product.is_active,
+        "product_id": product_id,
+    })
+
+    if result.rowcount == 0:
+        db.rollback()
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    db.commit()
+    return await get_product(product_id, db)
+
+@app.delete("/products/{product_id}", status_code=204)
+async def delete_product(product_id: int, db: Session = Depends(get_db)):
+    delete_query = text("""
+        DELETE FROM products
+        WHERE product_id = :product_id
+        RETURNING product_id
+    """)
+
+    result = db.execute(delete_query, {"product_id": product_id})
+    deleted = result.fetchone()
+
+    if not deleted:
+        db.rollback()
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    db.commit()
+    return Response(status_code=204)
 
 # Orders endpoints
 @app.get("/orders", response_model=List[Order])
