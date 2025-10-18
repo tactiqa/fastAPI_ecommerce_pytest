@@ -1,9 +1,9 @@
 # E-Commerce Database Setup Instructions
 
-## ⚠️ Important Note
+## Important Note
 Direct database connections may be restricted by network settings. The recommended approach is to use the Supabase Dashboard SQL Editor.
 
-## 🚀 Setup Methods
+## Setup Methods
 
 ### Method 1: Supabase Dashboard (RECOMMENDED)
 
@@ -53,25 +53,25 @@ pip install psycopg2-binary python-dotenv
 python setup_database.py
 ```
 
-## 📊 Tables Created
+## Tables Created
 
 The schema creates the following 13 tables:
 
-1. ✅ **users** - Customer and admin accounts
-2. ✅ **addresses** - Shipping and billing addresses
-3. ✅ **categories** - Product categories (hierarchical)
-4. ✅ **products** - Product catalog
-5. ✅ **product_variants** - Product variations (size, color, etc.)
-6. ✅ **carts** - Shopping carts
-7. ✅ **cart_items** - Items in shopping carts
-8. ✅ **orders** - Customer orders
-9. ✅ **order_items** - Items in orders
-10. ✅ **payments** - Payment transactions
-11. ✅ **ratings_and_reviews** - Product reviews
-12. ✅ **discount_coupons** - Promotional codes
-13. ✅ **coupon_usage** - Coupon usage tracking
+1. **users** - Customer and admin accounts
+2. **addresses** - Shipping and billing addresses
+3. **categories** - Product categories (hierarchical)
+4. **products** - Product catalog
+5. **product_variants** - Product variations (size, color, etc.)
+6. **carts** - Shopping carts
+7. **cart_items** - Items in shopping carts
+8. **orders** - Customer orders
+9. **order_items** - Items in orders
+10. **payments** - Payment transactions
+11. **ratings_and_reviews** - Product reviews
+12. **discount_coupons** - Promotional codes
+13. **coupon_usage** - Coupon usage tracking
 
-## 🔍 Verify Installation
+## Verify Installation
 
 After running the SQL script, verify the tables:
 
@@ -93,7 +93,7 @@ ORDER BY table_name;
 python check_db_direct.py
 ```
 
-## 📝 Next Steps
+## Next Steps
 
 After successful setup:
 
@@ -121,7 +121,7 @@ After successful setup:
    - Set up RLS policies in Supabase
    - Protect sensitive data
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Issue: "Network is unreachable"
 **Solution:** Use Supabase Dashboard SQL Editor instead of direct connection
@@ -135,14 +135,14 @@ After successful setup:
 ### Issue: "Foreign key constraint violation"
 **Solution:** Check the order of table creation in the SQL file
 
-## 📚 Resources
+## Resources
 
 - **Supabase Documentation**: https://supabase.com/docs
 - **PostgreSQL Documentation**: https://www.postgresql.org/docs/
 - **Database Schema**: See `DATABASE_SCHEMA.md`
 - **SQL File**: See `sql/create_ecommerce_schema.sql`
 
-## 🎯 Quick Start Commands
+## Quick Start Commands
 
 ```bash
 # 1. Activate virtual environment
@@ -158,17 +158,17 @@ python check_db_direct.py
 python list_tables_and_rows.py
 ```
 
-## 🔐 Security Reminders
+## Security Reminders
 
-1. ✅ Never commit `.env` file to version control
-2. ✅ Use strong password hashing (bcrypt, argon2)
-3. ✅ Configure RLS policies in Supabase
-4. ✅ Use ANON_KEY for client-side operations
-5. ✅ Use SERVICE_ROLE_KEY only on server-side
-6. ✅ Validate all user inputs
-7. ✅ Use parameterized queries to prevent SQL injection
+1. Never commit `.env` file to version control
+2. Use strong password hashing (bcrypt, argon2)
+3. Configure RLS policies in Supabase
+4. Use ANON_KEY for client-side operations
+5. Use SERVICE_ROLE_KEY only on server-side
+6. Validate all user inputs
+7. Use parameterized queries to prevent SQL injection
 
-## 📞 Support
+## Support
 
 If you encounter issues:
 1. Check Supabase project status

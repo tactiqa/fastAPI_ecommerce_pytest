@@ -27,7 +27,7 @@ def hash_password(password):
 
 def clear_existing_data(cursor):
     """Clear all existing data from tables in correct order"""
-    print("🗑️  Clearing existing data...")
+    print("Clearing existing data...")
     
     tables_to_clear = [
         'ratings_and_reviews',
@@ -48,12 +48,12 @@ def clear_existing_data(cursor):
     for table in tables_to_clear:
         try:
             cursor.execute(f"TRUNCATE TABLE {table} CASCADE")
-            print(f"   ✓ Cleared {table}")
+            print(f"   Cleared {table}")
         except Exception as e:
             # Silently skip tables that don't exist
             pass
     
-    print("✅ Data cleared successfully!\n")
+    print("Data cleared successfully!\n")
 
 def seed_database(clear_data=False):
     """Seed all tables with fake data"""
@@ -62,7 +62,7 @@ def seed_database(clear_data=False):
     database_url = os.getenv('DATABASE_URL')
     
     if not database_url:
-        print("❌ Missing DATABASE_URL in .env file")
+        print("Missing DATABASE_URL in .env file")
         return False
     
     try:
@@ -70,12 +70,12 @@ def seed_database(clear_data=False):
         print("SEEDING E-COMMERCE DATABASE")
         print("=" * 70)
         
-        print("\n🔍 Connecting to database...")
+        print("\nConnecting to database...")
         conn = psycopg2.connect(database_url)
         conn.autocommit = False
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-        print("✅ Connected successfully!\n")
+        print("Connected successfully!\n")
         
         # Clear existing data if requested
         if clear_data:
@@ -85,7 +85,7 @@ def seed_database(clear_data=False):
         # ====================================================================
         # 1. SEED CATEGORIES
         # ====================================================================
-        print("📁 Seeding Categories...")
+        print("Seeding Categories...")
         
         # Main categories
         main_categories = [
@@ -130,12 +130,12 @@ def seed_database(clear_data=False):
                 """, (sub, f"{sub} in {parent}", category_ids[parent]))
                 category_ids[sub] = cursor.fetchone()['category_id']
         
-        print(f"   ✓ Created {len(category_ids)} categories")
+        print(f"   Created {len(category_ids)} categories")
         
         # ====================================================================
         # 2. SEED USERS
         # ====================================================================
-        print("👥 Seeding Users...")
+        print("Seeding Users...")
         
         user_ids = []
         
@@ -162,12 +162,12 @@ def seed_database(clear_data=False):
             ))
             user_ids.append(cursor.fetchone()['user_id'])
         
-        print(f"   ✓ Created {len(user_ids)} users (1 admin, {len(user_ids)-1} customers)")
+        print(f"   Created {len(user_ids)} users (1 admin, {len(user_ids)-1} customers)")
         
         # ====================================================================
         # 3. SEED ADDRESSES
         # ====================================================================
-        print("🏠 Seeding Addresses...")
+        print("Seeding Addresses...")
         
         address_count = 0
         user_addresses = {}
@@ -201,12 +201,12 @@ def seed_database(clear_data=False):
                         UPDATE users SET default_address_id = %s WHERE user_id = %s
                     """, (address_id, user_id))
         
-        print(f"   ✓ Created {address_count} addresses")
+        print(f"   Created {address_count} addresses")
         
         # ====================================================================
         # 4. SEED PRODUCTS
         # ====================================================================
-        print("📦 Seeding Products...")
+        print("Seeding Products...")
         
         product_ids = []
         
@@ -245,12 +245,12 @@ def seed_database(clear_data=False):
                         ))
                         product_ids.append(cursor.fetchone()['product_id'])
         
-        print(f"   ✓ Created {len(product_ids)} products")
+        print(f"   Created {len(product_ids)} products")
         
         # ====================================================================
         # 5. SEED PRODUCT VARIANTS
         # ====================================================================
-        print("🎨 Seeding Product Variants...")
+        print("Seeding Product Variants...")
         
         variant_count = 0
         
@@ -278,12 +278,12 @@ def seed_database(clear_data=False):
                 ))
                 variant_count += 1
         
-        print(f"   ✓ Created {variant_count} product variants")
+        print(f"   Created {variant_count} product variants")
         
         # ====================================================================
         # 6. SEED COUPONS
         # ====================================================================
-        print("🎟️  Seeding Coupons...")
+        print("Seeding Coupons...")
         
         coupon_codes = [
             ("WELCOME10", "percentage", 10, 0),
@@ -305,12 +305,12 @@ def seed_database(clear_data=False):
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (code, disc_type, disc_value, valid_from, valid_until, min_amount, random.randint(50, 500)))
         
-        print(f"   ✓ Created {len(coupon_codes)} coupons")
+        print(f"   Created {len(coupon_codes)} coupons")
         
         # ====================================================================
         # 7. SEED CARTS (Active Shopping Carts)
         # ====================================================================
-        print("🛒 Seeding Shopping Carts...")
+        print("Seeding Shopping Carts...")
         
         cart_count = 0
         
@@ -336,12 +336,12 @@ def seed_database(clear_data=False):
             
             cart_count += 1
         
-        print(f"   ✓ Created {cart_count} active shopping carts")
+        print(f"   Created {cart_count} active shopping carts")
         
         # ====================================================================
         # 8. SEED ORDERS & PAYMENTS
         # ====================================================================
-        print("📋 Seeding Orders and Payments...")
+        print("Seeding Orders and Payments...")
         
         order_count = 0
         payment_count = 0
@@ -419,13 +419,13 @@ def seed_database(clear_data=False):
                 
                 order_count += 1
         
-        print(f"   ✓ Created {order_count} orders")
-        print(f"   ✓ Created {payment_count} payments")
+        print(f"   Created {order_count} orders")
+        print(f"   Created {payment_count} payments")
         
         # ====================================================================
         # 9. SEED REVIEWS
         # ====================================================================
-        print("⭐ Seeding Product Reviews...")
+        print("Seeding Product Reviews...")
         
         review_count = 0
         
@@ -451,19 +451,19 @@ def seed_database(clear_data=False):
                 ))
                 review_count += 1
         
-        print(f"   ✓ Created {review_count} product reviews")
+        print(f"   Created {review_count} product reviews")
         
         # ====================================================================
         # COMMIT ALL CHANGES
         # ====================================================================
-        print("\n💾 Committing all changes...")
+        print("\nCommitting all changes...")
         conn.commit()
         
         # ====================================================================
         # SHOW SUMMARY
         # ====================================================================
         print("\n" + "=" * 70)
-        print("✅ DATABASE SEEDING COMPLETED!")
+        print("DATABASE SEEDING COMPLETED!")
         print("=" * 70)
         
         cursor.execute("""
@@ -473,7 +473,7 @@ def seed_database(clear_data=False):
             ORDER BY table_name
         """)
         
-        print("\n📊 Final Table Counts:")
+        print("\nFinal Table Counts:")
         print("-" * 70)
         
         for table in cursor.fetchall():
@@ -488,7 +488,7 @@ def seed_database(clear_data=False):
         return True
         
     except Exception as e:
-        print(f"\n❌ Seeding failed: {e}")
+        print(f"\nSeeding failed: {e}")
         import traceback
         traceback.print_exc()
         if 'conn' in locals():
@@ -504,19 +504,19 @@ if __name__ == "__main__":
     clear_data = '--clear' in sys.argv or '--reset' in sys.argv
     
     if clear_data:
-        print("\n⚠️  WARNING: This will delete all existing data!")
+        print("\nWARNING: This will delete all existing data!")
         response = input("Are you sure you want to continue? (yes/no): ")
         if response.lower() not in ['yes', 'y']:
-            print("❌ Seeding cancelled.")
+            print("Seeding cancelled.")
             sys.exit(0)
     
     success = seed_database(clear_data=clear_data)
     
     if success:
-        print("\n📝 Next steps:")
+        print("\nNext steps:")
         print("1. Run check_db_direct.py to verify data")
         print("2. Start building your FastAPI endpoints")
         print("3. Test with realistic data!")
     else:
-        print("\n❌ Seeding failed!")
+        print("\nSeeding failed!")
         sys.exit(1)

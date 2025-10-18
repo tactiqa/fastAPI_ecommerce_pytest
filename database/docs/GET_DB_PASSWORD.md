@@ -1,13 +1,13 @@
 # How to Get Your Database Password
 
-## 🔑 Steps to Get Database Password from Supabase
+## Steps to Get Database Password from Supabase
 
 1. **Go to Supabase Dashboard**
    - Visit: https://supabase.com/dashboard
    - Select your project: `rzsdsbdadqufuxfbtymi`
 
 2. **Navigate to Database Settings**
-   - Click on **Settings** (⚙️) in the left sidebar
+   - Click on **Settings** in the left sidebar
    - Click on **Database**
 
 3. **Find Database Password**
@@ -22,7 +22,7 @@
    - Click "Show password" or copy the full connection string
    - Extract the password from `[YOUR-PASSWORD]` part
 
-## 📝 Update Your .env File
+## Update Your .env File
 
 ### Option 1: Use Full DATABASE_URL (Recommended)
 Add this to your `.env` file:
@@ -37,7 +37,7 @@ SUPABASE_URL=https://rzsdsbdadqufuxfbtymi.supabase.co
 DB_PASSWORD=your-actual-database-password-here
 ```
 
-## ⚠️ Important Notes
+## Important Notes
 
 1. **Database Password ≠ Service Role Key**
    - The database password is different from `SUPABASE_SERVICE_ROLE_KEY`
@@ -54,7 +54,7 @@ DB_PASSWORD=your-actual-database-password-here
    - Keep your database password secure
    - Rotate passwords regularly
 
-## 🧪 Test Your Connection
+## Test Your Connection
 
 After adding the password to `.env`, test it:
 
@@ -65,11 +65,11 @@ python check_db_direct.py
 
 You should see:
 ```
-✅ Connected successfully!
-📊 Found X tables in 'public' schema:
+Connected successfully!
+Found X tables in 'public' schema:
 ```
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### "Missing database credentials"
 - Make sure you added either `DATABASE_URL` or `DB_PASSWORD` to `.env`
@@ -82,7 +82,7 @@ You should see:
 - Check your internet connection
 - Verify the pooler host is correct for your region
 
-## 📸 Visual Guide
+## Visual Guide
 
 The connection string in Supabase looks like this:
 ```

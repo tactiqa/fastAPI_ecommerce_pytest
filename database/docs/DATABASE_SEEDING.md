@@ -4,7 +4,7 @@
 
 This document describes the database seeding process, the data generated, and how to use the seeding script.
 
-## 📊 Seeding Summary
+## Seeding Summary
 
 The database has been seeded with **realistic, complex fake data** using the Faker library to simulate a real e-commerce environment.
 
@@ -28,18 +28,18 @@ The database has been seeded with **realistic, complex fake data** using the Fak
 
 ---
 
-## 🎯 Seeding Script
+## Seeding Script
 
 **File:** `seed_database.py`
 
 ### Features
 
-- ✅ Generates realistic fake data using Faker
-- ✅ Creates complex relationships between entities
-- ✅ Implements business logic (order statuses, payment flows)
-- ✅ Uses bcrypt for password hashing
-- ✅ Maintains referential integrity
-- ✅ Transactional (all-or-nothing)
+- Generates realistic fake data using Faker
+- Creates complex relationships between entities
+- Implements business logic (order statuses, payment flows)
+- Uses bcrypt for password hashing
+- Maintains referential integrity
+- Transactional (all-or-nothing)
 
 ### Usage
 
@@ -53,7 +53,7 @@ python seed_database.py
 
 ---
 
-## 📋 Detailed Data Breakdown
+## Detailed Data Breakdown
 
 ### 1. Categories (48 rows)
 
@@ -383,11 +383,11 @@ One payment record per order.
 - **Total reviews:** 92
 
 #### Rating Distribution (weighted)
-- ⭐⭐⭐⭐⭐ (5 stars): 40%
-- ⭐⭐⭐⭐ (4 stars): 30%
-- ⭐⭐⭐ (3 stars): 15%
-- ⭐⭐ (2 stars): 10%
-- ⭐ (1 star): 5%
+- (5 stars): 40%
+- (4 stars): 30%
+- (3 stars): 15%
+- (2 stars): 10%
+- (1 star): 5%
 
 #### Review Attributes
 - **Content:** Faker-generated text (300 chars)
@@ -408,7 +408,7 @@ One payment record per order.
 
 ---
 
-## 🔧 Technical Details
+## Technical Details
 
 ### Password Hashing
 
@@ -467,7 +467,7 @@ except:
 
 ---
 
-## 🔄 Re-seeding
+## Re-seeding
 
 To re-seed the database:
 
@@ -485,7 +485,7 @@ To re-seed the database:
 
 ---
 
-## 📊 Data Verification
+## Data Verification
 
 After seeding, verify the data:
 
@@ -499,7 +499,7 @@ python check_db_direct.py
 
 ---
 
-## 🎯 Use Cases
+## Use Cases
 
 This seeded data supports testing:
 
@@ -539,7 +539,7 @@ This seeded data supports testing:
 
 ---
 
-## 📝 Notes
+## Notes
 
 - All timestamps use UTC timezone
 - Prices are in USD (implied)
@@ -551,7 +551,7 @@ This seeded data supports testing:
 
 ---
 
-## 🔐 Security Considerations
+## Security Considerations
 
 **Production Recommendations:**
 
@@ -572,7 +572,7 @@ This seeded data supports testing:
 
 ---
 
-## 📚 Related Documentation
+## Related Documentation
 
 - [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) - Complete schema documentation
 - [SETUP_INSTRUCTIONS.md](SETUP_INSTRUCTIONS.md) - Setup guide
