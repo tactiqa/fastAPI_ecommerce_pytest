@@ -107,3 +107,41 @@ def test_03_delete_product_e2e(created_product):
 
     follow_up = requests.get(f"{BASE_URL}/products/{product_id}")
     assert follow_up.status_code == 404
+
+
+@pytest.fixture(scope="module")
+def sample_category_id():
+    """Return a category ID that has at least one product."""
+    with engine.connect() as connection:
+        row = connection.execute(
+            text("SELECT category_id FROM products GROUP BY category_id LIMIT 1")
+        ).fetchone()
+        assert row is not None, "No categories with products found"
+        return row[0]
+
+
+def test_get_products_list_e2e():
+    """GET /products returns a non-empty list."""
+    response = requests.get(f"{BASE_URL}/products")
+    assert response.status_code == 200
+    products = response.json()
+    assert isinstance(products, list)
+    assert len(products) > 0
+
+
+def test_filter_products_by_category_e2e(sample_category_id):
+    """GET /products?category_id=... returns filtered list."""
+    response = requests.get(f"{BASE_URL}/products", params={"category_id": sample_category_id})
+    assert response.status_code == 200
+    products = response.json()
+    # Ensure all returned products belong to the requested category
+    assert all(p["category_name"] for p in products)
+    # Optional sanity: at least one product is returned
+    assert len(products) > 0
+
+
+def test_get_nonexistent_product_404_e2e():
+    """GET /products/<nonexistent_id> returns 404."""
+    response = requests.get(f"{BASE_URL}/products/999999")
+    assert response.status_code == 404
+    assert "Product not found" in response.text
