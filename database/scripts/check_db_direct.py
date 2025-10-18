@@ -19,12 +19,12 @@ def check_database_direct():
     database_url = os.getenv('DATABASE_URL')
     
     if database_url:
-        print("🔍 Connecting to Supabase database using DATABASE_URL...")
+        print("Connecting to Supabase database using DATABASE_URL...")
         try:
             conn = psycopg2.connect(database_url)
-            print("✅ Connected successfully!")
+            print("Connected successfully!")
         except Exception as e:
-            print(f"❌ Connection failed: {e}")
+            print(f"Connection failed: {e}")
             return
     else:
         # Fall back to individual components
@@ -32,9 +32,9 @@ def check_database_direct():
         db_password = os.getenv('DB_PASSWORD')
         
         if not supabase_url or not db_password:
-            print("❌ Missing database credentials in .env file")
-            print("💡 Add either DATABASE_URL or (SUPABASE_URL + DB_PASSWORD)")
-            print("\n📝 Get your database password from:")
+            print("Missing database credentials in .env file")
+            print("Add either DATABASE_URL or (SUPABASE_URL + DB_PASSWORD)")
+            print("\nGet your database password from:")
             print("   Supabase Dashboard > Project Settings > Database > Database password")
             return
         
@@ -45,9 +45,9 @@ def check_database_direct():
         db_user = f"postgres.{project_id}"
         db_port = 6543
         
-        print("🔍 Connecting to Supabase database...")
-        print(f"📊 Host: {db_host} (Transaction Pooler)")
-        print(f"👤 User: {db_user}")
+        print("Connecting to Supabase database...")
+        print(f"Host: {db_host} (Transaction Pooler)")
+        print(f"User: {db_user}")
         
         try:
             # Connect to database
@@ -58,10 +58,10 @@ def check_database_direct():
                 password=db_password,
                 port=db_port
             )
-            print("✅ Connected successfully!")
+            print("Connected successfully!")
         except Exception as e:
-            print(f"❌ Connection failed: {e}")
-            print("💡 Check your DB_PASSWORD in .env file")
+            print(f"Connection failed: {e}")
+            print("Check your DB_PASSWORD in .env file")
             return
     
     try:
@@ -82,10 +82,10 @@ def check_database_direct():
         tables = cursor.fetchall()
         
         if not tables:
-            print("📭 No tables found in the public schema")
+            print("No tables found in the public schema")
             return
         
-        print(f"\n📊 Found {len(tables)} tables in 'public' schema:")
+        print(f"\nFound {len(tables)} tables in 'public' schema:")
         print("=" * 60)
         
         # Get row counts for each table
@@ -99,20 +99,20 @@ def check_database_direct():
                 count_result = cursor.fetchone()
                 row_count = count_result['count']
                 
-                print(f"📋 {table_name:25} | {row_count:>8,} rows")
+                print(f"{table_name:25} | {row_count:>8,} rows")
                 
                 # Optional: Get sample data (first 3 rows)
                 if row_count > 0:
                     cursor.execute(f'SELECT * FROM "{schema}"."{table_name}" LIMIT 3')
                     sample_rows = cursor.fetchall()
                     if sample_rows:
-                        print(f"   🔍 Sample columns: {list(sample_rows[0].keys())}")
+                        print(f"   Sample columns: {list(sample_rows[0].keys())}")
                         for i, row in enumerate(sample_rows[:2], 1):
                             print(f"   Row {i}: {dict(row)}")
                         print()
                 
             except Exception as e:
-                print(f"📋 {table_name:25} | Error: {str(e)[:50]}...")
+                print(f"{table_name:25} | Error: {str(e)[:50]}...")
         
         # Also show all schemas
         cursor.execute("""
@@ -124,20 +124,20 @@ def check_database_direct():
         """)
         schemas = cursor.fetchall()
         
-        print(f"\n🏗️  Available schemas ({len(schemas)}):")
+        print(f"\nAvailable schemas ({len(schemas)}):")
         for schema in schemas:
-            print(f"   📁 {schema['schema_name']}")
+            print(f"   {schema['schema_name']}")
         
     except ImportError:
-        print("❌ Missing psycopg2 library")
-        print("💡 Install with: pip install psycopg2-binary")
+        print("Missing psycopg2 library")
+        print("Install with: pip install psycopg2-binary")
         
     except psycopg2.OperationalError as e:
-        print(f"❌ Database connection failed: {e}")
-        print("💡 Check your SUPABASE_SERVICE_ROLE_KEY and network connection")
+        print(f"Database connection failed: {e}")
+        print("Check your SUPABASE_SERVICE_ROLE_KEY and network connection")
         
     except Exception as e:
-        print(f"❌ Unexpected error: {e}")
+        print(f"Unexpected error: {e}")
         
     finally:
         if 'cursor' in locals():

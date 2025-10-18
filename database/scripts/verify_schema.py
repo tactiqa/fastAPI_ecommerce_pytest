@@ -47,6 +47,6 @@ for table in tables:
         continue
 
     for row in columns:
-        print(f"{row['column_name']:25} {row['data_type']} erzählen")
+        print(f"{row['column_name']:25} {row['data_type']}")
 
 conn.close()

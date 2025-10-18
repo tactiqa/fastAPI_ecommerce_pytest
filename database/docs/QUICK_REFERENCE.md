@@ -1,6 +1,6 @@
 # Quick Reference Guide
 
-## 🚀 Essential Commands
+## Essential Commands
 
 ### Database Operations
 ```bash
@@ -29,7 +29,7 @@ python --version
 
 ---
 
-## 🔑 Credentials
+## Credentials
 
 ### Admin Account
 ```
@@ -55,7 +55,7 @@ User: postgres.rzsdsbdadqufuxfbtymi
 
 ---
 
-## 📊 Database Quick Facts
+## Database Quick Facts
 
 ### Tables (13)
 | Table | Rows | Purpose |
@@ -90,7 +90,7 @@ User: postgres.rzsdsbdadqufuxfbtymi
 
 ---
 
-## 📁 Important Files
+## Important Files
 
 ### Configuration
 - `.env` - Environment variables (DATABASE_URL, API keys)
@@ -117,7 +117,7 @@ User: postgres.rzsdsbdadqufuxfbtymi
 
 ---
 
-## 🔍 Common Queries
+## Common Queries
 
 ### Get All Products
 ```sql
@@ -163,7 +163,7 @@ ORDER BY c1.name, c2.name;
 
 ---
 
-## 🛠️ Troubleshooting
+## Troubleshooting
 
 ### Connection Issues
 ```bash
@@ -192,7 +192,7 @@ python seed_database.py
 
 ---
 
-## 📚 Next Steps
+## Next Steps
 
 ### 1. Build FastAPI Application
 ```bash
@@ -233,7 +233,7 @@ mkdir -p app/schemas
 
 ---
 
-## 🔗 Useful Links
+## Useful Links
 
 - [Supabase Dashboard](https://supabase.com/dashboard)
 - [FastAPI Documentation](https://fastapi.tiangolo.com/)
@@ -242,7 +242,7 @@ mkdir -p app/schemas
 
 ---
 
-## 📞 Support
+## Support
 
 For issues:
 1. Check documentation files
@@ -253,5 +253,5 @@ For issues:
 ---
 
 **Last Updated:** October 16, 2025  
-**Database Status:** ✅ Seeded and ready  
+**Database Status:** Seeded and ready  
 **Next Milestone:** FastAPI application development
