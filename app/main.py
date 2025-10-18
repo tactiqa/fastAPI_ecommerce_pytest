@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 import os
 from dotenv import load_dotenv
@@ -70,6 +70,27 @@ class Order(BaseModel):
     total_amount: float
     order_status: str
     created_at: str
+
+class CartItemCreate(BaseModel):
+    user_id: str
+    product_id: int
+    quantity: int = Field(gt=0)
+    variant_id: Optional[int] = None
+
+class CartItemResponse(BaseModel):
+    cart_item_id: int
+    cart_id: int
+    product_id: int
+    quantity: int
+    variant_id: Optional[int] = None
+    product_name: str
+    base_price: float
+
+class CartResponse(BaseModel):
+    cart_id: int
+    user_id: str
+    items: List[CartItemResponse]
+    total_quantity: int
 
 # Database dependency
 def get_db():
@@ -263,6 +284,195 @@ async def get_order(order_id: int, db: Session = Depends(get_db)):
         order_status=order.order_status,
         created_at=str(order.created_at)
     )
+
+@app.get("/cart/{user_id}", response_model=CartResponse)
+async def get_cart(user_id: str, db: Session = Depends(get_db)):
+    cart_result = db.execute(
+        text("""
+            SELECT cart_id
+            FROM carts
+            WHERE user_id = :user_id
+        """),
+        {"user_id": user_id}
+    ).fetchone()
+
+    if cart_result:
+        cart_id = cart_result.cart_id
+    else:
+        new_cart = db.execute(
+            text("""
+                INSERT INTO carts (user_id)
+                VALUES (:user_id)
+                RETURNING cart_id
+            """),
+            {"user_id": user_id}
+        )
+        cart_id = new_cart.scalar()
+        db.commit()
+
+    items = db.execute(
+        text("""
+            SELECT ci.cart_item_id, ci.cart_id, ci.product_id, ci.quantity, ci.variant_id,
+                   p.name AS product_name, p.base_price
+            FROM cart_items ci
+            JOIN products p ON ci.product_id = p.product_id
+            WHERE ci.cart_id = :cart_id
+            ORDER BY ci.cart_item_id
+        """),
+        {"cart_id": cart_id}
+    ).fetchall()
+
+    response_items = [
+        CartItemResponse(
+            cart_item_id=item.cart_item_id,
+            cart_id=item.cart_id,
+            product_id=item.product_id,
+            quantity=item.quantity,
+            variant_id=item.variant_id,
+            product_name=item.product_name,
+            base_price=float(item.base_price)
+        )
+        for item in items
+    ]
+
+    total_quantity = sum(item.quantity for item in items)
+
+    return CartResponse(
+        cart_id=cart_id,
+        user_id=user_id,
+        items=response_items,
+        total_quantity=total_quantity
+    )
+
+@app.post("/cart/items", response_model=CartItemResponse, status_code=201)
+async def add_cart_item(payload: CartItemCreate, db: Session = Depends(get_db)):
+    product = db.execute(
+        text("""
+            SELECT product_id, name, base_price
+            FROM products
+            WHERE product_id = :product_id
+        """),
+        {"product_id": payload.product_id}
+    ).fetchone()
+
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    if payload.variant_id is not None:
+        variant = db.execute(
+            text("""
+                SELECT variant_id
+                FROM product_variants
+                WHERE variant_id = :variant_id AND product_id = :product_id
+            """),
+            {"variant_id": payload.variant_id, "product_id": payload.product_id}
+        ).fetchone()
+        if not variant:
+            raise HTTPException(status_code=404, detail="Variant not found for product")
+
+    cart_row = db.execute(
+        text("""
+            SELECT cart_id
+            FROM carts
+            WHERE user_id = :user_id
+        """),
+        {"user_id": payload.user_id}
+    ).fetchone()
+
+    if cart_row:
+        cart_id = cart_row.cart_id
+    else:
+        new_cart = db.execute(
+            text("""
+                INSERT INTO carts (user_id)
+                VALUES (:user_id)
+                RETURNING cart_id
+            """),
+            {"user_id": payload.user_id}
+        )
+        cart_id = new_cart.scalar()
+
+    existing_item = db.execute(
+        text("""
+            SELECT cart_item_id, quantity
+            FROM cart_items
+            WHERE cart_id = :cart_id
+              AND product_id = :product_id
+              AND ((variant_id IS NULL AND :variant_id IS NULL) OR variant_id = :variant_id)
+        """),
+        {
+            "cart_id": cart_id,
+            "product_id": payload.product_id,
+            "variant_id": payload.variant_id,
+        }
+    ).fetchone()
+
+    if existing_item:
+        updated_quantity = existing_item.quantity + payload.quantity
+        db.execute(
+            text("""
+                UPDATE cart_items
+                SET quantity = :quantity, updated_at = CURRENT_TIMESTAMP
+                WHERE cart_item_id = :cart_item_id
+            """),
+            {"quantity": updated_quantity, "cart_item_id": existing_item.cart_item_id}
+        )
+        cart_item_id = existing_item.cart_item_id
+    else:
+        inserted = db.execute(
+            text("""
+                INSERT INTO cart_items (cart_id, product_id, variant_id, quantity)
+                VALUES (:cart_id, :product_id, :variant_id, :quantity)
+                RETURNING cart_item_id
+            """),
+            {
+                "cart_id": cart_id,
+                "product_id": payload.product_id,
+                "variant_id": payload.variant_id,
+                "quantity": payload.quantity,
+            }
+        )
+        cart_item_id = inserted.scalar()
+
+    db.commit()
+
+    item = db.execute(
+        text("""
+            SELECT ci.cart_item_id, ci.cart_id, ci.product_id, ci.quantity, ci.variant_id,
+                   p.name AS product_name, p.base_price
+            FROM cart_items ci
+            JOIN products p ON ci.product_id = p.product_id
+            WHERE ci.cart_item_id = :cart_item_id
+        """),
+        {"cart_item_id": cart_item_id}
+    ).fetchone()
+
+    return CartItemResponse(
+        cart_item_id=item.cart_item_id,
+        cart_id=item.cart_id,
+        product_id=item.product_id,
+        quantity=item.quantity,
+        variant_id=item.variant_id,
+        product_name=item.product_name,
+        base_price=float(item.base_price)
+    )
+
+@app.delete("/cart/items/{cart_item_id}", status_code=204)
+async def delete_cart_item(cart_item_id: int, db: Session = Depends(get_db)):
+    result = db.execute(
+        text("""
+            DELETE FROM cart_items
+            WHERE cart_item_id = :cart_item_id
+        """),
+        {"cart_item_id": cart_item_id}
+    )
+
+    if result.rowcount == 0:
+        db.rollback()
+        raise HTTPException(status_code=404, detail="Cart item not found")
+
+    db.commit()
+    return Response(status_code=204)
 
 # Database stats endpoint
 @app.get("/stats")
