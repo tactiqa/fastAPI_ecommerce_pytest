@@ -26,7 +26,7 @@ fastapi-ecommerce/
 ### 1. Environment bootstrap
 
 ```bash
-git clone git@github.com:tactiqa/API_testing_fastAPI_ecommerce.git
+git clone git@github.com:tactiqa/fastAPI_ecommerce_pytest.git
 cd fastapi-ecommerce
 python -m venv venv
 source venv/bin/activate
