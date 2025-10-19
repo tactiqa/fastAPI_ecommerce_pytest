@@ -1,4 +1,4 @@
-# FastAPI E-Commerce Testing Playground
+# FastAPI E-Commerce API Python/Pytest Test Suite
 
 This repository is a set of python/pytest based test suites for a realistic FastAPI e-commerce backend. The backend build with FastAPI runs inside Docker container that uses Supabase/PostgreSQL as the database for all ecommerce data. The application thips with a full Supabase/PostgreSQL schema, seeded data, and a growing suite of automated tests that demonstrate how to validate APIs,
 
