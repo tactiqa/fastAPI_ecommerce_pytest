@@ -278,6 +278,50 @@ async def get_orders(skip: int = 0, limit: int = 100, db: Session = Depends(get_
         for o in orders
     ]
 
+@app.get("/users/{user_id}/orders", response_model=List[Order])
+async def get_user_orders(user_id: str, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    user_result = db.execute(
+        text("""
+            SELECT user_id, email
+            FROM users
+            WHERE user_id = :user_id
+        """),
+        {"user_id": user_id}
+    ).fetchone()
+
+    if not user_result:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    query = text("""
+        SELECT o.order_id, :customer_email AS customer_email, o.total_amount, o.status as order_status, o.created_at::text as created_at
+        FROM orders o
+        WHERE o.user_id = :user_id
+        ORDER BY o.created_at DESC
+        LIMIT :limit OFFSET :skip
+    """)
+
+    result = db.execute(
+        query,
+        {
+            "user_id": user_id,
+            "customer_email": user_result.email,
+            "skip": skip,
+            "limit": limit,
+        }
+    )
+    orders = result.fetchall()
+
+    return [
+        Order(
+            order_id=str(o.order_id),
+            customer_email=o.customer_email,
+            total_amount=float(o.total_amount),
+            order_status=o.order_status,
+            created_at=str(o.created_at)
+        )
+        for o in orders
+    ]
+
 @app.get("/orders/{order_id}", response_model=Order)
 async def get_order(order_id: str, db: Session = Depends(get_db)):
     query = text("""
