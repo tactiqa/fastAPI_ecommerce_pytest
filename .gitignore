@@ -191,3 +191,9 @@ uploads/
 temp/
 static/
 media/
+
+# some docs
+database/docs/
+
+# some docs
+docs/
