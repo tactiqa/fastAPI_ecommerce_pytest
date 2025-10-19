@@ -137,6 +137,37 @@ def test_create_order_from_cart_e2e(customer_details, shipping_address_id, activ
     assert order_item["quantity"] == quantity
     assert order_item["unit_price"] == pytest.approx(base_price, rel=1e-6)
 
+    with engine.connect() as connection:
+        db_order = connection.execute(
+            text(
+                """
+                SELECT total_amount
+                FROM orders
+                WHERE order_id = :order_id
+                """
+            ),
+            {"order_id": order_id},
+        ).fetchone()
+        assert db_order is not None, "Order record not persisted"
+        assert float(db_order.total_amount) == pytest.approx(base_price * quantity, rel=1e-6)
+
+        db_order_items = connection.execute(
+            text(
+                """
+                SELECT product_id, quantity, unit_price
+                FROM order_items
+                WHERE order_id = :order_id
+                ORDER BY order_item_id
+                """
+            ),
+            {"order_id": order_id},
+        ).fetchall()
+        assert len(db_order_items) == 1
+        db_item = db_order_items[0]
+        assert str(db_item.product_id) == product_id
+        assert db_item.quantity == quantity
+        assert float(db_item.unit_price) == pytest.approx(base_price, rel=1e-6)
+
     cart_response = requests.get(f"{BASE_URL}/cart/{user_id}")
     assert cart_response.status_code == 200, cart_response.text
     cart_data = cart_response.json()
