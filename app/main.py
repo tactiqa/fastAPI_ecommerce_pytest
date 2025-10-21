@@ -19,6 +19,9 @@ if not DATABASE_URL:
 if not DATABASE_URL:
     raise ValueError("No database URL provided. Set SUPABASE_DATABASE_URL or DATABASE_URL environment variable.")
 
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 # Create SQLAlchemy engine
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
