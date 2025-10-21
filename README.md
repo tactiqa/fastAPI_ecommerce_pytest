@@ -26,13 +26,19 @@ fastapi-ecommerce/
 ### 1. Environment bootstrap
 
 ```bash
-git clone git@github.com:tactiqa/API_testing_fastAPI_ecommerce.git
-cd fastapi-ecommerce
+git clone git@github.com:tactiqa/fastAPI_ecommerce_pytest.git
+cd fastAPI_ecommerce_pytest
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env  # DATABASE_URL already points at the seeded dataset
+cp .env.example .env 
 ```
+
+**Configure .env file:**
+Update the `.env` file with your database credentials:
+- `DATABASE_URL`: Local PostgreSQL (for Docker) - `postgresql://user:password@localhost:5432/ecommerce_db`
+- `SUPABASE_DATABASE_URL`: Remote Supabase database connection
+- `SUPABASE_URL`: Your Supabase project URL
 
 ### 2. Bring the stack online (Docker + Supabase)
 
@@ -82,7 +88,7 @@ Run an individual test case:
 
 ## Working with the database helper scripts
 
-Seed your database before running pytest (seed_database.py)
+Seed your SQL database (supabase) before running pytest (seed_database.py)
 
 - `database/scripts/check_db_direct.py`: quick snapshot of table counts and sample rows.
 - `database/scripts/migrate_to_serial.py --confirm`: rebuild schema locally before reseeding.
@@ -100,7 +106,7 @@ Seed your database before running pytest (seed_database.py)
 ## Credentials & test identities
 
 - **Admin**: `admin@ecommerce.com` / `admin123`
-- **Customers**: all seeded customers share password `password123` (see `/database/docs/DATABASE_SEEDING.md` for emails).
+- **Customers**: all seeded customers share password `password123` (see `/extra_docs/DATABASE_SEEDING.md` for emails).
 
 ## Troubleshooting tips
 
