@@ -36,8 +36,8 @@ cp .env.example .env
 
 **Configure .env file:**
 Update the `.env` file with your database credentials:
-- `DATABASE_URL`: Local PostgreSQL (for Docker) - `postgresql://user:password@localhost:5432/ecommerce_db`
-- `SUPABASE_DATABASE_URL`: Remote Supabase database connection
+- `DATABASE_URL`: supabase database connection string (Transaction pooler)
+- `SUPABASE_URL`: supabase URL project
 - `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase service role key
 
 ### 2. Bring the stack online (Docker + Supabase)
